@@ -1,0 +1,198 @@
+require('dotenv').config();
+const express = require('express');
+const auth = require('./src/middlewares/auth');
+const bcrypt = require('bcrypt');
+require('./src/db/conn')
+const Register = require('./src/models/register')
+const app = express();
+const hbs = require('hbs');
+const port = process.env.PORT || 8001;
+const cookieParser = require('cookie-parser')
+const path = require('path')
+const cors = require('cors')
+// Middlewares
+app.use(express.json());
+app.use(express.urlencoded({extended:true}));
+app.use(cookieParser());
+// app.use(cors());\const cors = require("cors");
+
+app.use(cors({
+  origin: "http://localhost:3000",
+  credentials: true
+}));
+
+
+
+
+  
+
+
+
+
+
+// view engine path  
+const template_path = path.join(__dirname , './templates/views')
+const partials_path = path.join(__dirname , './templates/partials')
+
+// setting up view engine
+app.set('view engine',"hbs");
+app.set("views" , template_path)
+hbs.registerPartials(partials_path)
+
+
+
+
+//Routes defining
+app.get('/register' , (req,res)=>{
+res.render('register')
+})
+app.post('/register' , async(req,res)=>{
+   try{
+       const registerUser = new Register({
+           name : req.body.name,
+           email:req.body.email,
+           contact:req.body.contact,
+           password:req.body.password,
+           aadhar :req.body.aadhar,
+       })
+
+       const userExist = await Register.findOne({aadhar : registerUser.aadhar});
+       if(userExist){
+           res.status(422).json({error:"User already exists"})
+       }
+       else{
+
+           
+           
+           const token = await registerUser.generateAuthToken();
+           
+           
+           const registered = await registerUser.save();
+           console.log("User Created Successfully");
+           res.status(201).json({message:"Registered Successfully"});
+        }
+   }catch(e){
+       console.log(e.message);
+       res.status(400).send('user already exists with these creditentials')
+   }
+})
+
+
+app.get('/login' , (req,res)=>{
+    res.render('login')
+    })
+
+app.post('/login' , async(req,res)=>{
+try{
+    const aadhar = req.body.aadhar;
+    const password = req.body.password;
+    const user = await Register.findOne({aadhar:aadhar});
+    const isMatch =  await bcrypt.compare(password, user.password);
+    const token = await user.generateAuthToken();
+    res.cookie("jwt" , token , {
+        expires:new Date(Date.now() + 600000),
+        httpOnly:true,
+    })
+    if(isMatch){
+        console.log('Login Successfull')
+        res.status(200).send('Logged in ')
+    }
+}
+catch(e){
+    console.log(e.message)
+    res.status(400).send('error logging in')
+
+}
+})
+
+
+app.get('/home' , async(req,res)=>{
+    var array= new Array();
+
+    const total = await Register.find({voteStatus:true}).count();
+    array.push(total);
+    const bjp = await Register.find({voted:{$elemMatch:{party:"bjp"}}}).count();
+    array.push(bjp);
+    
+    const congress =  await Register.find({voted:{$elemMatch:{party:"congress"}}}).count();
+    array.push(congress);
+
+
+    const aap = await Register.find({voted:{$elemMatch:{party:"aap"}}}).count();
+    array.push(aap);
+
+
+    const ncp =  await Register.find({voted:{$elemMatch:{party:"ncp"}}}).count();
+    array.push(ncp);
+
+       
+    const inld =  await Register.find({voted:{$elemMatch:{party:"inld"}}}).count();
+    array.push(inld);
+
+    //    console.log(array)
+       res.status(200).json({total ,bjp, congress , aap , ncp , inld});
+    // res.status(200).send(array)
+})
+
+app.get('/logout' ,auth,async(req,res)=>{
+    try{
+        req.user.tokens=[];
+        res.clearCookie('jwt');
+        await req.user.save();
+        res.status(200).send();
+    }catch(e){
+        res.status(404).send('Login to access this page')
+    }
+})
+
+
+
+app.post('/voterecording', async (req, res) => {
+  const { aadhar, password, party } = req.body;
+
+  // 🔴 Validation
+  if (!aadhar || !password || !party) {
+    return res.status(400).json({
+      error: "Missing fields"
+    });
+  }
+
+  try {
+    // 🔐 user check (example)
+    const user = await User.findOne({ aadhar, password });
+
+    if (!user) {
+      return res.status(400).json({
+        error: "Please login to vote"
+      });
+    }
+
+    if (user.hasVoted) {
+      return res.status(500).json({
+        error: "You have already voted"
+      });
+    }
+
+    // 🗳️ Save vote
+    user.hasVoted = true;
+    user.party = party;
+    await user.save();
+
+    return res.status(200).json({
+      message: "Vote recorded successfully"
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      error: "Internal server error"
+    });
+  }
+});
+
+
+
+// listening to server
+app.listen(port,"0.0.0.0", ()=>{
+    console.log(`listening to port ${port}`);
+})
