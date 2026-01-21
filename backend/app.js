@@ -150,43 +150,32 @@ app.get('/logout' ,auth,async(req,res)=>{
 app.post('/voterecording', async (req, res) => {
   const { aadhar, password, party } = req.body;
 
-  // 🔴 Validation
   if (!aadhar || !password || !party) {
-    return res.status(400).json({
-      error: "Missing fields"
-    });
+    return res.status(400).json({ error: "Missing fields" });
   }
 
   try {
-    // 🔐 user check (example)
-    const user = await User.findOne({ aadhar, password });
+    const user = await Register.findOne({ aadhar });
 
     if (!user) {
-      return res.status(400).json({
-        error: "Please login to vote"
-      });
+      return res.status(400).json({ error: "Please login to vote" });
     }
 
-    if (user.hasVoted) {
-      return res.status(500).json({
-        error: "You have already voted"
-      });
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(400).json({ error: "Invalid credentials" });
     }
 
-    // 🗳️ Save vote
-    user.hasVoted = true;
-    user.party = party;
-    await user.save();
+    if (user.voteStatus || (user.voted && user.voted.length > 0)) {
+      return res.status(500).json({ error: "You have already voted" });
+    }
 
-    return res.status(200).json({
-      message: "Vote recorded successfully"
-    });
+    await user.voting(party);
 
+    return res.status(200).json({ message: "Vote recorded successfully" });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({
-      error: "Internal server error"
-    });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
