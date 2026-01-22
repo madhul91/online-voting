@@ -22,7 +22,7 @@ jobs:
           script: |
             echo "🚀 Starting deployment"
 
-            cd /home/ubuntu/app
+            cd /home/ec2-user/app
 
             echo "🔐 Docker login"
             docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
@@ -32,7 +32,7 @@ jobs:
 
             echo "🔄 Restarting containers"
             docker compose down
-            docker compose up -d
+            docker compose -f docker-compose2.yml up -d
 
             echo "🧹 Cleaning unused images"
             docker image prune -f
