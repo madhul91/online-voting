@@ -24,7 +24,7 @@ jobs:
 
             cd /home/ec2-user/app
 
-            echo "🔐 Docker login"
+            echo "🔐 Docker login success"
             docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
 
             echo "📥 Pulling latest images"
