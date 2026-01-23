@@ -28,7 +28,7 @@ jobs:
             docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
 
             echo "📥 Pulling latest images"
-            docker compose pull
+            docker compose -f docker-compose2.yml pull
 
             echo "🔄 Restarting containers"
             docker compose down
